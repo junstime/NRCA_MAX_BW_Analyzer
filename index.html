@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CA BW Analyzer v2</title>
+<style>
+  :root {
+    --bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;
+    --accent:#58a6ff;--green:#3fb950;--warn:#f78166;--yellow:#e3b341;
+    --text:#e6edf3;--dim:#8b949e;--muted:#484f58;
+    --mono:'JetBrains Mono','Fira Code','Courier New',monospace;
+    --sans:'IBM Plex Sans',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh;display:flex;flex-direction:column;}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 24px;display:flex;align-items:center;gap:12px;}
+  .logo{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.05em;}
+  .badge{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);padding:2px 8px;border-radius:20px;}
+  .badge.offline{color:var(--green);border-color:rgba(63,185,80,.3);}
+  .spec{margin-left:auto;font-size:11px;color:var(--muted);}
+  main{flex:1;max-width:980px;width:100%;margin:0 auto;padding:28px 24px;display:flex;flex-direction:column;gap:18px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+  .ch{padding:11px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+  .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  .cb{padding:16px;display:flex;flex-direction:column;gap:14px;}
+  .row{display:flex;gap:12px;align-items:flex-end;}
+  .field{display:flex;flex-direction:column;gap:6px;flex:1;}
+  .field label{font-size:12px;font-weight:600;color:var(--dim);}
+  .field input{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:13px;padding:9px 12px;width:100%;outline:none;transition:border-color .15s;}
+  .field input:focus{border-color:var(--accent);}
+  .field input::placeholder{color:var(--muted);}
+  .btn{border:none;border-radius:6px;font-family:var(--sans);font-size:13px;font-weight:700;padding:10px 22px;cursor:pointer;transition:opacity .15s,transform .1s;white-space:nowrap;}
+  .btn:hover{opacity:.85;}.btn:active{transform:scale(.98);}.btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-p{background:var(--accent);color:#0d1117;}
+  .btn-s{font-size:12px;padding:6px 14px;border:1px solid var(--border);background:var(--surface2);color:var(--dim);}
+  .btn-s:hover{border-color:var(--accent);color:var(--accent);}
+  .db-bar{padding:8px 16px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);border-top:1px solid var(--border);}
+  .ind{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .ind-g{background:var(--green);}.ind-r{background:var(--warn);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .result-card{display:none;}.result-card.show{display:block;}
+  .srow{padding:10px 16px;display:flex;align-items:center;gap:8px;font-size:12px;border-bottom:1px solid var(--border);background:var(--surface2);}
+  .srow.run{color:var(--accent);}.srow.ok{color:var(--green);}.srow.err{color:var(--warn);}
+  .spin{width:12px;height:12px;border:2px solid rgba(88,166,255,.25);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .trace{padding:12px 16px;display:flex;flex-direction:column;gap:3px;border-bottom:1px solid var(--border);}
+  .ti{display:flex;gap:9px;align-items:flex-start;font-size:12px;color:var(--muted);}
+  .ti.act{color:var(--accent);}.ti.ok{color:var(--green);}.ti.err{color:var(--warn);}
+  .tic{font-size:11px;width:13px;text-align:center;flex-shrink:0;margin-top:1px;}
+  .tim{font-family:var(--mono);line-height:1.5;}
+  .out{padding:16px;}
+  .ol{font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:10px;letter-spacing:.08em;text-transform:uppercase;}
+  .lines{display:flex;flex-direction:column;gap:4px;}
+  .line{font-family:var(--mono);font-size:13px;color:var(--green);background:rgba(63,185,80,.06);border:1px solid rgba(63,185,80,.15);border-radius:4px;padding:7px 12px;line-height:1.5;cursor:pointer;transition:background .15s;animation:fu .2s ease both;}
+  .line:hover{background:rgba(63,185,80,.12);}
+  .line.copied{border-color:var(--green);background:rgba(63,185,80,.18);}
+  .line.sp{color:var(--accent);background:rgba(88,166,255,.06);border-color:rgba(88,166,255,.15);}
+  .line.sp:hover{background:rgba(88,166,255,.12);}
+  .line.el{color:var(--warn);background:rgba(247,129,102,.06);border-color:rgba(247,129,102,.15);}
+  @keyframes fu{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+  .ch2{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:6px;}
+  .mrow{padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:16px;font-size:11px;color:var(--muted);font-family:var(--mono);flex-wrap:wrap;}
+  .mrow b{color:var(--dim);}
+  .arow{padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px;}
+  .help-body{padding:14px 16px;display:flex;flex-direction:column;gap:8px;}
+  .hi{display:flex;gap:10px;font-size:12px;}
+  .hl{color:var(--muted);font-family:var(--mono);font-size:11px;width:80px;text-align:right;flex-shrink:0;margin-top:1px;}
+  .hv{font-family:var(--mono);color:var(--dim);}
+  .hv .c{color:var(--accent);}.hv .s{color:var(--muted);}
+  footer{padding:12px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);text-align:center;}
+
+  /* ── 설정 패널 ── */
+  .cfg-panel{display:none;flex-direction:column;gap:0;}
+  .cfg-panel.open{display:flex;}
+  .cfg-toggle{margin-left:auto;font-size:11px;padding:4px 12px;border:1px solid var(--border);background:var(--surface2);color:var(--dim);border-radius:20px;cursor:pointer;transition:border-color .15s,color .15s;font-family:var(--sans);}
+  .cfg-toggle:hover,.cfg-toggle.active{border-color:var(--yellow);color:var(--yellow);}
+
+  /* 설정 탭 */
+  .cfg-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg);}
+  .cfg-tab{padding:9px 18px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;user-select:none;}
+  .cfg-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .cfg-body{padding:16px;display:none;}
+  .cfg-body.active{display:block;}
+
+  /* 칩셋 Limitation 테이블 */
+  .lim-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;}
+  .lim-table th{padding:6px 10px;text-align:left;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--border);}
+  .lim-table td{padding:5px 4px;border-bottom:1px solid rgba(48,54,61,.5);}
+  .lim-table tr:last-child td{border-bottom:none;}
+  .lim-key{color:var(--dim);padding:5px 10px;}
+  .lim-case-row{display:flex;gap:4px;align-items:center;flex-wrap:wrap;}
+  .lim-case{display:flex;align-items:center;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:3px 7px;}
+  .lim-case span{color:var(--muted);font-size:10px;}
+  .lim-inp{background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:12px;width:42px;text-align:center;padding:2px 4px;outline:none;}
+  .lim-inp:focus{border-color:var(--accent);}
+  .lim-sep{color:var(--muted);font-size:11px;}
+  .lim-add{font-size:11px;padding:3px 8px;border:1px dashed var(--border);background:transparent;color:var(--muted);border-radius:4px;cursor:pointer;}
+  .lim-add:hover{border-color:var(--accent);color:var(--accent);}
+  .lim-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:0 2px;}
+  .lim-del:hover{color:var(--warn);}
+
+  /* 단말 BW 테이블 */
+  .ue-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .ue-table th{padding:7px 12px;text-align:left;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--border);}
+  .ue-table td{padding:5px 6px;border-bottom:1px solid rgba(48,54,61,.5);}
+  .ue-table tr:last-child td{border-bottom:none;}
+  .ue-band{font-family:var(--mono);font-size:12px;color:var(--dim);width:52px;padding:5px 12px;}
+  .ue-inp{background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:5px 9px;width:100%;outline:none;transition:border-color .15s;}
+  .ue-inp:focus{border-color:var(--accent);}
+  .ue-inp.err{border-color:var(--warn);}
+
+  /* 설정 푸터 */
+  .cfg-footer{padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;background:var(--bg);}
+  .cfg-note{font-size:11px;color:var(--muted);margin-left:auto;font-family:var(--mono);}
+  .mod-badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:10px;background:rgba(227,179,65,.12);border:1px solid rgba(227,179,65,.3);color:var(--yellow);margin-left:6px;vertical-align:middle;}
+
+  /* ── 네비게이션 ── */
+  .nav{display:flex;align-items:center;gap:6px;margin-left:12px;}
+  .nav-link{font-family:var(--mono);font-size:11px;color:var(--dim);text-decoration:none;padding:3px 10px;border:1px solid var(--border);border-radius:20px;background:var(--surface2);transition:color .15s,border-color .15s;white-space:nowrap;}
+  .nav-link:hover{color:var(--accent);border-color:var(--accent);}
+  .nav-link.pdf{color:var(--muted);}
+  .nav-link.pdf:hover{color:var(--yellow);border-color:var(--yellow);}
+  @media(max-width:640px){.nav{display:none;}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">CA_BW_ANALYZER</div>
+  <div class="badge">v2.0</div>
+  <div class="badge offline">● OFFLINE · API 불필요</div>
+  <div class="spec">3GPP TS 38.101-1 V19.5.0</div>
+  <nav class="nav">
+    <a href="workflow.html"  class="nav-link">워크플로우</a>
+    <a href="flowchart.html" class="nav-link">순서도</a>
+    <a href="manual.pdf"     class="nav-link pdf" target="_blank">매뉴얼 ↗</a>
+  </nav>
+  <button class="cfg-toggle" id="cfgToggle" onclick="toggleCfg()">⚙ 설정</button>
+</header>
+<main>
+  <div class="card">
+    <div class="ch"><div class="dot" style="background:var(--accent)"></div>CA 조합 입력</div>
+    <div class="cb">
+      <div class="row">
+        <div class="field" style="flex:3">
+          <label>CA 조합</label>
+          <input id="inp" type="text" placeholder="예: n1A-n3A-n28A  /  n1A-n3A-n78C  /  n1A-n40A-n77(2A)" autocomplete="off"/>
+        </div>
+        <div><button class="btn btn-p" id="runBtn" onclick="run()">분석</button></div>
+      </div>
+    </div>
+    <div class="db-bar"><div class="ind ind-r" id="dbInd"></div><span id="dbTxt">DB 로딩 중...</span></div>
+  </div>
+
+  <div class="card result-card" id="rc">
+    <div class="ch"><div class="dot" style="background:var(--green)"></div>분석 결과</div>
+    <div class="srow run" id="sr"><div class="spin" id="sp"></div><span id="st">분석 중...</span></div>
+    <div class="trace" id="trace"></div>
+    <div class="out" id="out" style="display:none">
+      <div class="ol">결과 (클릭하면 복사)</div>
+      <div class="lines" id="lines"></div>
+      <div class="ch2" id="ch2"></div>
+    </div>
+    <div class="mrow" id="mr" style="display:none"></div>
+    <div class="arow" id="ar" style="display:none">
+      <button class="btn btn-s" onclick="copyAll()">전체 복사</button>
+      <button class="btn btn-s" onclick="clearAll()">초기화</button>
+    </div>
+  </div>
+
+  <!-- 설정 패널 -->
+  <div class="card cfg-panel" id="cfgPanel">
+    <div class="ch">
+      <div class="dot" style="background:var(--yellow)"></div>
+      설정
+      <span id="modBadge" style="display:none"><span class="mod-badge">수정됨</span></span>
+      <button class="btn btn-s" style="margin-left:auto;font-size:11px;padding:4px 10px;" onclick="resetAll()">초기값 복원</button>
+    </div>
+    <div class="cfg-tabs">
+      <div class="cfg-tab active" onclick="switchTab('lim')">칩셋 Limitation</div>
+      <div class="cfg-tab" onclick="switchTab('ue')">단말 BW</div>
+    </div>
+    <!-- 칩셋 Limitation 탭 -->
+    <div class="cfg-body active" id="tab-lim">
+      <table class="lim-table" id="limTable">
+        <thead><tr>
+          <th style="width:110px">구성</th>
+          <th>케이스 [FDD Max + TDD Max MHz]</th>
+        </tr></thead>
+        <tbody id="limBody"></tbody>
+      </table>
+    </div>
+    <!-- 단말 BW 탭 -->
+    <div class="cfg-body" id="tab-ue">
+      <div style="overflow-x:auto;">
+        <table class="ue-table" id="ueTable"></table>
+      </div>
+    </div>
+    <div class="cfg-footer">
+      <span class="cfg-note" id="cfgNote">변경 사항은 즉시 적용됩니다</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><div class="dot" style="background:var(--yellow)"></div>입력 예시</div>
+    <div class="help-body">
+      <div class="hi"><div class="hl">3F</div><div class="hv"><span class="c">n1A-n3A-n28A</span></div></div>
+      <div class="hi"><div class="hl">4F</div><div class="hv"><span class="c">n1A-n3A-n7A-n28A</span></div></div>
+      <div class="hi"><div class="hl">2F+2T (3케)</div><div class="hv"><span class="c">n1A-n3A-n78C</span><span class="s">  또는  </span><span class="c">n1A-n3A-n78(2A)</span></div></div>
+      <div class="hi"><div class="hl">1F+1T</div><div class="hv"><span class="c">n1A-n78A</span></div></div>
+      <div class="hi"><div class="hl">1F+2T</div><div class="hv"><span class="c">n1A-n41A-n78A</span></div></div>
+      <div class="hi"><div class="hl">1F+3T</div><div class="hv"><span class="c">n1A-n40A-n77(2A)</span></div></div>
+      <div class="hi"><div class="hl">FDD Intra</div><div class="hv"><span class="c">n1A-n3(2A)-n7A</span><span class="s">  또는  </span><span class="c">n1B-n78A</span></div></div>
+      <div class="hi"><div class="hl">2F+1T</div><div class="hv"><span class="c">n1A-n3A-n78A</span></div></div>
+    </div>
+  </div>
+</main>
+<footer>CA BW Analyzer v2 · 완전 오프라인 · 3GPP TS 38.101-1 V19.5.0 · API 키 불필요</footer>
+
+<script src="ca_bw_db.js"></script>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+//  상수
+// ═══════════════════════════════════════════
+const FDD_BANDS = new Set(['n1','n2','n3','n5','n7','n8','n12','n20','n25','n26','n28','n66','n71','n75']);
+const TDD_BANDS = new Set(['n38','n40','n41','n77','n78','n79']);
+const CLASS_CC  = {A:1,B:2,C:2,D:3,E:4};
+
+// [fddMax, tddMax]  ← let으로 변경 (설정에서 수정 가능)
+let CASES = {
+  '1F':[[50,0]],'2F':[[80,0]],'3F':[[100,0]],'4F':[[100,0]],
+  '1T':[[0,100]],'2T':[[0,200]],'3T':[[0,300]],
+  '1F+1T':[[50,100]],'2F+1T':[[80,100]],'1F+2T':[[50,200]],
+  '2F+2T':[[50,200],[60,180],[80,140]],
+  '3F+1T':[[100,100]],
+  '1F+3T_HI':[[40,220]],
+  '1F+3T_LO':[[30,240]],
+};
+
+// 단말 지원 BW ← let으로 변경 (설정에서 수정 가능)
+let UE_BW = {
+  n1:[5,10,15,20,25,30,40],n2:[5,10,15,20,25,30,40],n3:[5,10,15,20,25,30,40],
+  n5:[5,10,15,20],n7:[5,10,15,20,25,30,40],n8:[5,10,15,20],
+  n12:[5,10,15],n20:[5,10,15,20],n25:[5,10,15,20,25,30,40],
+  n26:[5,10,15,20],n28:[5,10,15,20,25,30],n38:[10,15,20,30,40],
+  n40:[10,15,20,30,40,50,60,70,80,90,100],
+  n41:[10,15,20,30,40,50,60,70,80,90,100],
+  n66:[5,10,15,20,30,40],n71:[5,10,15,20],
+  n75:[5,10,15,20,25,30,40,50],
+  n77:[10,15,20,30,40,50,60,70,80,90,100],
+  n78:[10,15,20,30,40,50,60,70,80,90,100],
+};
+
+// 초기값 스냅샷 (리셋용)
+const DEFAULT_CASES = JSON.parse(JSON.stringify(CASES));
+const DEFAULT_UE_BW = JSON.parse(JSON.stringify(UE_BW));
+
+// ═══════════════════════════════════════════
+//  DB 초기화
+// ═══════════════════════════════════════════
+window.addEventListener('load', () => {
+  const ind = document.getElementById('dbInd');
+  const txt = document.getElementById('dbTxt');
+  if (typeof CA_BW_DB !== 'undefined') {
+    ind.className = 'ind ind-g';
+    txt.textContent = `DB 로드 완료 — ${Object.keys(CA_BW_DB).length.toLocaleString()}개 조합`;
+  } else {
+    txt.textContent = 'DB 로드 실패 — ca_bw_db.js를 같은 폴더에 놓으세요';
+  }
+  renderLimTable();
+  renderUETable();
+});
+
+// ═══════════════════════════════════════════
+//  STEP 1: 파싱
+// ═══════════════════════════════════════════
+function parseInput(raw) {
+  const pat = /n(\d+)(?:\((\d+)A\)|([A-Z]))?/g;
+  const bands = []; let m;
+  while ((m = pat.exec(raw)) !== null) {
+    const name = 'n' + m[1];
+    let cc=1, notation='A';
+    if (m[2])      { cc = parseInt(m[2]); notation = `(${m[2]}A)`; }
+    else if (m[3]) { notation = m[3]; cc = CLASS_CC[m[3]] || 1; }
+    bands.push({
+      name, cc, notation, full: name+notation,
+      isFDD: FDD_BANDS.has(name), isTDD: TDD_BANDS.has(name), isIntra: cc>1
+    });
+  }
+  return bands;
+}
+
+// ═══════════════════════════════════════════
+//  STEP 2: 칩셋
+// ═══════════════════════════════════════════
+function getChipset(bands) {
+  let fCnt=0, tCnt=0, fddUEMax=0;
+  for (const b of bands) {
+    if (b.isFDD) { fCnt+=b.cc; fddUEMax=Math.max(fddUEMax,...(UE_BW[b.name]||[0])); }
+    else if (b.isTDD) tCnt+=b.cc;
+  }
+  let key;
+  if (fCnt>0&&tCnt>0) {
+    key=(fCnt===1&&tCnt===3)?(fddUEMax>=40?'1F+3T_HI':'1F+3T_LO'):`${fCnt}F+${tCnt}T`;
+  } else if (fCnt>0) key=`${fCnt}F`;
+  else key=`${tCnt}T`;
+  return { key, fCnt, tCnt, fddUEMax, cases: CASES[key]||[] };
+}
+
+// ═══════════════════════════════════════════
+//  DB 조회 + ref 해석
+// ═══════════════════════════════════════════
+function resolveRef(ref) {
+  const clean = ref.replace(/\s/g,'');
+  const m = clean.match(/^CA_(n\d+(?:\(\d+A\))?[A-Z]?)_BCS(.+)$/);
+  if (!m) return null;
+  const base='CA_'+m[1], bcsKey='BCS'+m[2];
+  for (const k of Object.keys(CA_BW_DB)) {
+    if (k.startsWith(base) && !k.slice(base.length).includes('-')) {
+      if (CA_BW_DB[k]?.[bcsKey]) return CA_BW_DB[k][bcsKey];
+    }
+  }
+  const fm = m[1].match(/^(n\d+)\(\d+A\)$/);
+  if (fm) {
+    const bk = 'CA_'+fm[1]+'B';
+    if (CA_BW_DB[bk]?.[bcsKey]) return CA_BW_DB[bk][bcsKey];
+  }
+  return null;
+}
+
+function intersect(a, b) { const sb=new Set(b); return a.filter(v=>sb.has(v)); }
+
+function getEffBW(entry, bcsKey, bands) {
+  const raw = entry[bcsKey];
+  if (!raw) return null;
+  const result = {};
+
+  // 단독 intra 조합
+  if (raw.intra) {
+    for (const b of bands)
+      result[b.name] = {intra:true, cc_max:raw.cc_max, eff:intersect(raw.cc_vals||[], UE_BW[b.name]||[])};
+    return result;
+  }
+
+  for (const b of bands) {
+    const val = raw[b.name];
+    if (val===undefined) continue;
+    if (Array.isArray(val)) {
+      result[b.name] = intersect(val, UE_BW[b.name]||[]);
+    } else if (val && typeof val==='object') {
+      if (val.intra) {
+        result[b.name] = {intra:true, cc_max:val.cc_max, eff:intersect(val.cc_vals||[], UE_BW[b.name]||[])};
+      } else if (val.ref) {
+        // 'BCS 4 and 5' ref → 해당 BCS는 BCS4/5 전용, 유효하지 않음
+        if (val.ref.includes('BCS 4')) { result.__invalid = true; break; }
+        const res = resolveRef(val.ref);
+        if (res) {
+          if (res.intra) {
+            result[b.name] = {intra:true, cc_max:res.cc_max, eff:intersect(res.cc_vals||[], UE_BW[b.name]||[])};
+          } else if (Array.isArray(res)) {
+            result[b.name] = intersect(res, UE_BW[b.name]||[]);
+          } else if (res.cc_vals) {
+            result[b.name] = {intra:true, cc_max:res.cc_max, eff:intersect(res.cc_vals, UE_BW[b.name]||[])};
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+// ═══════════════════════════════════════════
+//  BCS 선택
+// ═══════════════════════════════════════════
+function selectBCS(entry, bands) {
+  let best=null, bestScore=-1;
+  for (const k of Object.keys(entry)) {
+    if (k==='BCS4and5') continue;
+    const eff = getEffBW(entry, k, bands);
+    if (!eff || eff.__invalid) continue;
+    let s=0;
+    for (const b of bands) {
+      const v=eff[b.name]; if (!v) continue;
+      if (v.intra) {
+        const e=v.eff; let mx=0;
+        for (let i=0;i<e.length;i++) for (let j=i;j<e.length;j++) if(e[i]+e[j]<=v.cc_max) mx=Math.max(mx,e[i]+e[j]);
+        s+=mx;
+      } else if (Array.isArray(v)&&v.length) s+=v[v.length-1];
+    }
+    if (s>bestScore) { bestScore=s; best=k; }
+  }
+  return best;
+}
+
+// ═══════════════════════════════════════════
+//  규칙 0
+// ═══════════════════════════════════════════
+function preCheck(bands, cases) {
+  for (const [fddMax,tddMax] of cases) {
+    let fSum=0,tSum=0;
+    for (const b of bands) {
+      const ueMax=Math.max(...(UE_BW[b.name]||[0]));
+      if (b.isFDD) fSum+=ueMax*b.cc; else if (b.isTDD) tSum+=ueMax*b.cc;
+    }
+    if ((fddMax===0||fSum<=fddMax)&&(tddMax===0||tSum<=tddMax)) return true;
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════
+//  완전탐색 유틸
+// ═══════════════════════════════════════════
+function fddIntraFixed(eff, ccMax) {
+  let ms=0;
+  for (let i=0;i<eff.length;i++) for (let j=i;j<eff.length;j++) if(eff[i]+eff[j]<=ccMax) ms=Math.max(ms,eff[i]+eff[j]);
+  const pairs=[];
+  for (let i=0;i<eff.length;i++) for (let j=i;j<eff.length;j++) if(eff[i]+eff[j]===ms) pairs.push([eff[i],eff[j]]);
+  return {maxSum:ms, pairs};
+}
+
+function tddIntraPairs(eff, ccMax) {
+  const res=[];
+  for (let i=0;i<eff.length;i++) for (let j=i;j<eff.length;j++) if(eff[i]+eff[j]<=ccMax) res.push([eff[i],eff[j]]);
+  return res;
+}
+
+function dominated(c, pool) {
+  for (const o of pool) {
+    if (o===c) continue;
+    if (o.every((v,i)=>v>=c[i]) && o.some((v,i)=>v>c[i])) return true;
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════
+//  탐색 (재귀 + pool)
+// ═══════════════════════════════════════════
+function search(bands, effBW, chipset) {
+  const fiBands = bands.filter(b=>b.isFDD&&b.isIntra);
+  const fsBands = bands.filter(b=>b.isFDD&&!b.isIntra);
+  const tsBands = bands.filter(b=>b.isTDD&&!b.isIntra);
+  const tiBands = bands.filter(b=>b.isTDD&&b.isIntra);
+
+  // FDD Intra 고정
+  const fiMap={};
+  let totalFi=0;
+  for (const b of fiBands) {
+    const e=effBW[b.name];
+    if (!e?.intra) continue;
+    const {maxSum,pairs}=fddIntraFixed(e.eff,e.cc_max);
+    fiMap[b.name]={maxSum,pairs};
+    totalFi+=maxSum;
+  }
+
+  const fsVals = fsBands.map(b=>effBW[b.name]||[]);
+  const tsVals = tsBands.map(b=>effBW[b.name]||[]);
+  const tiPairsArr = tiBands.map(b=>{
+    const e=effBW[b.name];
+    return (e?.intra)?tddIntraPairs(e.eff,e.cc_max):[];
+  });
+  const fiVals = fiBands.map(b=>fiMap[b.name]?.maxSum||0);
+
+  const pool = new Map();
+
+  for (const [fddMax,tddMax] of chipset.cases) {
+    const remFDD=fddMax-totalFi;
+    if (remFDD<0) continue;
+
+    // FDD Single 재귀
+    function recFS(fi, cur, rem) {
+      if (fi===fsBands.length) { recTS(0,cur,[]); return; }
+      for (const v of fsVals[fi]) {
+        if (v>rem) break;
+        cur.push(v); recFS(fi+1,cur,rem-v); cur.pop();
+      }
+    }
+
+    // TDD Single 재귀
+    function recTS(ti, fsCur, tsCur) {
+      if (ti===tsBands.length) { recTI(0,fsCur,tsCur,[],tddMax-tsCur.reduce((a,b)=>a+b,0)); return; }
+      const tRem=tddMax-tsCur.reduce((a,b)=>a+b,0);
+      for (const v of tsVals[ti]) {
+        if (v>tRem) break;
+        tsCur.push(v); recTS(ti+1,fsCur,tsCur); tsCur.pop();
+      }
+    }
+
+    // TDD Intra 재귀
+    function recTI(ti, fsCur, tsCur, tiCur, remTDD) {
+      if (ti===tiBands.length) {
+        const combo=buildCombo(bands,fiBands,fsBands,tsBands,tiBands,fiVals,fsCur,tsCur,tiCur);
+        if (combo) pool.set(combo.join(','), combo);
+        return;
+      }
+      for (const pair of tiPairsArr[ti]) {
+        const s=pair[0]+pair[1];
+        if (s>remTDD) continue;
+        tiCur.push(pair); recTI(ti+1,fsCur,tsCur,tiCur,remTDD-s); tiCur.pop();
+      }
+    }
+
+    recFS(0,[],remFDD);
+  }
+
+  return {pool, fiMap};
+}
+
+function buildCombo(bands,fiBands,fsBands,tsBands,tiBands,fiVals,fsVals,tsVals,tiPairs) {
+  const fiMap=Object.fromEntries(fiBands.map((b,i)=>[b.name,fiVals[i]]));
+  const fsMap=Object.fromEntries(fsBands.map((b,i)=>[b.name,fsVals[i]]));
+  const tsMap=Object.fromEntries(tsBands.map((b,i)=>[b.name,tsVals[i]]));
+  const tiMap=Object.fromEntries(tiBands.map((b,i)=>[b.name,tiPairs[i]]));
+  const result=[];
+  for (const b of bands) {
+    if (b.isFDD&&b.isIntra)      { const v=fiMap[b.name]; if(v===undefined)return null; result.push(v); }
+    else if (b.isFDD)             { const v=fsMap[b.name]; if(v===undefined)return null; result.push(v); }
+    else if (b.isTDD&&b.isIntra) { const p=tiMap[b.name]; if(!p)return null; result.push(p[0],p[1]); }
+    else if (b.isTDD)             { const v=tsMap[b.name]; if(v===undefined)return null; result.push(v); }
+  }
+  return result;
+}
+
+// ═══════════════════════════════════════════
+//  TDD Inter 양방향
+// ═══════════════════════════════════════════
+function perms(arr) {
+  if (arr.length<=1) return [[...arr]];
+  const res=[];
+  for (let i=0;i<arr.length;i++)
+    for (const p of perms([...arr.slice(0,i),...arr.slice(i+1)])) res.push([arr[i],...p]);
+  return res;
+}
+
+function addBidirectional(pool, bands) {
+  const tddSingleIdxs=[]; let idx=0;
+  for (const b of bands) {
+    if (b.isFDD&&b.isIntra) idx+=1;
+    else if (b.isFDD) idx+=1;
+    else if (b.isTDD&&b.isIntra) idx+=2;
+    else if (b.isTDD) { tddSingleIdxs.push(idx); idx+=1; }
+  }
+  if (tddSingleIdxs.length<2) return;
+  const extra=new Map();
+  for (const [,c] of pool) {
+    const origVals=tddSingleIdxs.map(i=>c[i]);
+    for (const perm of perms(origVals)) {
+      const nc=[...c];
+      tddSingleIdxs.forEach((si,k)=>nc[si]=perm[k]);
+      const key=nc.join(',');
+      if (!pool.has(key)&&!extra.has(key)) extra.set(key,nc);
+    }
+  }
+  for (const [k,v] of extra) pool.set(k,v);
+}
+
+// ═══════════════════════════════════════════
+//  포맷
+// ═══════════════════════════════════════════
+// FDD Intra split이 여러 개면 각각 별도 줄로 반환 (배열)
+function formatLines(c, bands, fiMap, bcsKey) {
+  // FDD Intra 밴드별 가능한 split 목록 수집
+  const fddIntraSplits = {}; // bandName → [[c1,c2], ...]
+  for (const b of bands) {
+    if (b.isFDD && b.isIntra) {
+      fddIntraSplits[b.name] = fiMap[b.name]?.pairs || [[0,0]];
+    }
+  }
+
+  // FDD Intra 밴드들의 split 조합 생성 (Cartesian product)
+  const fiBands = bands.filter(b=>b.isFDD&&b.isIntra);
+  const splitCombos = cartesianSplits(fiBands.map(b=>fddIntraSplits[b.name]));
+
+  const lines = [];
+  for (const splitCombo of splitCombos) {
+    const splitMap = Object.fromEntries(fiBands.map((b,i)=>[b.name, splitCombo[i]]));
+    const parts=[]; let vi=0;
+    for (const b of bands) {
+      if (b.isFDD&&b.isIntra) {
+        const pair=splitMap[b.name]||[0,0];
+        parts.push(`${b.full}[${pair[0]}+${pair[1]}M]`); vi+=1;
+      } else if (b.isFDD) {
+        parts.push(`${b.full}[${c[vi]}M]`); vi+=1;
+      } else if (b.isTDD&&b.isIntra) {
+        parts.push(`${b.full}[${c[vi]}+${c[vi+1]}M]`); vi+=2;
+      } else if (b.isTDD) {
+        parts.push(`${b.full}[${c[vi]}M]`); vi+=1;
+      }
+    }
+    lines.push(parts.join('-')+`(${bcsKey})`);
+  }
+  return lines;
+}
+
+function cartesianSplits(pairArrays) {
+  if (!pairArrays.length) return [[]];
+  const [first, ...rest] = pairArrays;
+  const restCombos = cartesianSplits(rest);
+  const result = [];
+  for (const p of first) for (const r of restCombos) result.push([p, ...r]);
+  return result;
+}
+
+// ═══════════════════════════════════════════
+//  UI
+// ═══════════════════════════════════════════
+let td=[];
+function addT(state,msg) { td.push({state,msg}); renderT(); }
+function upT(i,state,msg) { td[i]={state,msg}; renderT(); }
+function renderT() {
+  document.getElementById('trace').innerHTML=td.map(t=>`<div class="ti ${t.state}"><span class="tic">${t.state==='ok'?'✓':t.state==='err'?'✗':t.state==='act'?'▶':'○'}</span><span class="tim">${t.msg}</span></div>`).join('');
+}
+function setS(type,msg) {
+  document.getElementById('sr').className='srow '+type;
+  document.getElementById('st').textContent=msg;
+  document.getElementById('sp').style.display=type==='run'?'block':'none';
+}
+
+// ═══════════════════════════════════════════
+//  메인
+// ═══════════════════════════════════════════
+async function run() {
+  const raw=document.getElementById('inp').value.trim();
+  if (!raw) { alert('CA 조합을 입력하세요'); return; }
+  if (typeof CA_BW_DB==='undefined') { alert('DB 로드 실패'); return; }
+
+  td=[];
+  document.getElementById('rc').className='card result-card show';
+  document.getElementById('out').style.display='none';
+  document.getElementById('mr').style.display='none';
+  document.getElementById('ar').style.display='none';
+  document.getElementById('lines').innerHTML='';
+  document.getElementById('trace').innerHTML='';
+  document.getElementById('runBtn').disabled=true;
+  setS('run','분석 중...');
+  await new Promise(r=>setTimeout(r,20));
+
+  try {
+    const t0=performance.now();
+
+    // ── 파싱 ──
+    addT('act',`파싱: "${raw}"`);
+    const bands=parseInput(raw);
+    if (!bands.length) throw new Error('밴드를 파싱할 수 없습니다');
+    const unk=bands.filter(b=>!b.isFDD&&!b.isTDD);
+    if (unk.length) throw new Error(`알 수 없는 밴드: ${unk.map(b=>b.name).join(', ')}`);
+    upT(0,'ok',`파싱 완료 — ${bands.map(b=>b.full).join(' · ')}`);
+
+    // ── 5CA 이상: DB 탐색 없이 BCS5 + 케이스 구조만 표시 ──
+    const totalCC = bands.reduce((s,b)=>s+b.cc, 0);
+    if (totalCC >= 5) {
+      const cs5=getChipset(bands);
+      addT('ok',`5CA 이상 (${totalCC}CC) — DB 탐색 생략, BCS5 표시`);
+      finish([`BCS5 : ${cs5.key}`], 'BCS5', performance.now()-t0, bands, cs5, false);
+      return;
+    }
+
+    // ── 칩셋 ──
+    addT('act','칩셋 구조 판단');
+    const cs=getChipset(bands);
+    if (!cs.cases.length) throw new Error(`지원하지 않는 칩셋 구성: ${cs.key}`);
+    const caseDesc=cs.cases.map(([f,t])=>{const p=[];if(f)p.push(`FDD ${f}`);if(t)p.push(`TDD ${t}`);return p.join('+')+' MHz';}).join(' / ');
+    upT(1,'ok',`${cs.key} → ${caseDesc}`);
+    addT('act','No Limitation 사전 검사');
+    if (preCheck(bands,cs.cases)) {
+      upT(2,'ok','UE Max 합계 ≤ 칩셋 Max → No Limitation');
+      finish(['No Limitation'],null,performance.now()-t0,bands,cs,false);
+      return;
+    }
+    upT(2,'ok','칩셋 Max 초과 → DB 조회 진행');
+
+    // ── DB 조회 ──
+    addT('act','DB 조회');
+    const dbKey='CA_'+bands.map(b=>b.full).join('-');
+    const entry=CA_BW_DB[dbKey];
+    if (!entry) throw new Error(`DB에 해당 조합 없음: ${dbKey}`);
+    const bcsKeys=Object.keys(entry).filter(k=>k!=='BCS4and5');
+    if (!bcsKeys.length) {
+      upT(3,'ok',`DB 조회 성공: ${dbKey}`);
+      finish(['(BCS4 and 5)'],null,performance.now()-t0,bands,cs,false);
+      return;
+    }
+    upT(3,'ok',`DB 조회 성공: ${dbKey}`);
+
+    // ── BCS 선택 ──
+    addT('act','BCS 선택 & 유효 BW 계산');
+    const bestBCS=selectBCS(entry,bands);
+    if (!bestBCS) {
+      // 모든 BCS가 BCS 4 and 5 전용 ref → BCS4and5만 존재
+      upT(4,'ok','모든 BCS가 BCS4/5 전용 → (BCS4 and 5)');
+      finish(['(BCS4 and 5)'],null,performance.now()-t0,bands,cs,false);
+      return;
+    }
+    const effBW=getEffBW(entry,bestBCS,bands);
+    if (!effBW) throw new Error(`BCS 파싱 실패: ${bestBCS}`);
+    const effDesc=bands.map(b=>{
+      const v=effBW[b.name]; if(!v) return `${b.name}:?`;
+      if(v.intra) return `${b.name}(cc_max=${v.cc_max},[${v.eff}])`;
+      return `${b.name}:[${v}]`;
+    }).join(' / ');
+    upT(4,'ok',`${bestBCS} 선택 → ${effDesc}`);
+
+    // ── 완전탐색 ──
+    addT('act','완전탐색 + Cross-case Pareto');
+    await new Promise(r=>setTimeout(r,10));
+
+    const {pool, fiMap}=search(bands,effBW,cs);
+
+    // TDD 양방향
+    addBidirectional(pool,bands);
+
+    // Pareto
+    const allVals=[...pool.values()];
+    const paretoVals=allVals.filter(c=>!dominated(c,allVals));
+    if (!paretoVals.length) throw new Error('결과가 없습니다');
+
+    // 내림차순 정렬 (총합 기준 → 각 밴드 값 순서)
+    paretoVals.sort((a,b)=>{
+      const sa=a.reduce((x,y)=>x+y,0), sb=b.reduce((x,y)=>x+y,0);
+      if (sb!==sa) return sb-sa;
+      for (let i=0;i<a.length;i++) if (b[i]!==a[i]) return b[i]-a[i];
+      return 0;
+    });
+
+    const lines=paretoVals.flatMap(c=>formatLines(c,bands,fiMap,bestBCS));
+    upT(5,'ok',`탐색 완료 — 후보 ${allVals.length}개 → Pareto 후 ${paretoVals.length}개`);
+
+    finish(lines,bestBCS,performance.now()-t0,bands,cs,!!entry.BCS4and5);
+
+  } catch(err) {
+    setS('err',`오류: ${err.message}`);
+    if (td.length) upT(td.length-1,'err',`오류: ${err.message}`);
+    document.getElementById('out').style.display='block';
+    document.getElementById('lines').innerHTML=`<div class="line el">${err.message}</div>`;
+    document.getElementById('ar').style.display='flex';
+  } finally {
+    document.getElementById('runBtn').disabled=false;
+  }
+}
+
+function finish(lines,bcsKey,elapsed,bands,cs,hasBCS4and5) {
+  const ms=Math.round(elapsed);
+  setS('ok',`분석 완료 — ${lines.length}개 결과 · ${ms}ms`);
+  const container=document.getElementById('lines');
+  container.innerHTML='';
+  lines.forEach((txt,i)=>{
+    const div=document.createElement('div');
+    const isSp=txt.includes('No Limitation')||txt.includes('BCS4')||txt.includes('BCS5');
+    div.className='line'+(isSp?' sp':'');
+    div.style.animationDelay=`${i*15}ms`;
+    div.textContent=txt;
+    div.title='클릭하면 복사';
+    div.onclick=()=>navigator.clipboard.writeText(txt).then(()=>{div.classList.add('copied');setTimeout(()=>div.classList.remove('copied'),1200);});
+    container.appendChild(div);
+  });
+  // BCS0/1/2 결과가 없을 때만 BCS4and5 표시
+  const hasNormalBCS = bcsKey && bcsKey !== '(BCS4 and 5)' && lines.length > 0 && !lines[0].includes('No Limitation');
+  if (hasBCS4and5 && !hasNormalBCS) {
+    const n=document.createElement('div');
+    n.className='line sp'; n.style.animationDelay=`${lines.length*15}ms`;
+    n.textContent='※ BCS4 and 5도 존재합니다'; n.style.cursor='default';
+    container.appendChild(n);
+  }
+  document.getElementById('ch2').textContent=`${lines.length}개 결과 · 각 줄 클릭 시 복사`;
+  document.getElementById('mr').innerHTML=
+    `<div>칩셋: <b>${cs.key}</b></div>`+
+    (bcsKey?`<div>선택 BCS: <b>${bcsKey}</b></div>`:'')+
+    `<div>처리 시간: <b>${ms}ms</b></div>`;
+  document.getElementById('out').style.display='block';
+  document.getElementById('mr').style.display='flex';
+  document.getElementById('ar').style.display='flex';
+}
+
+function copyAll() {
+  const lines=[...document.querySelectorAll('.line')].map(e=>e.textContent);
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>{
+    const btn=event.target; btn.textContent='복사됨!';
+    setTimeout(()=>btn.textContent='전체 복사',1500);
+  });
+}
+function clearAll() {
+  document.getElementById('rc').classList.remove('show');
+  document.getElementById('inp').value='';
+  document.getElementById('inp').focus();
+}
+
+// ═══════════════════════════════════════════
+//  설정 패널
+// ═══════════════════════════════════════════
+function toggleCfg() {
+  const panel = document.getElementById('cfgPanel');
+  const btn   = document.getElementById('cfgToggle');
+  const isOpen = panel.classList.toggle('open');
+  btn.classList.toggle('active', isOpen);
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.cfg-tab').forEach((el,i)=>el.classList.toggle('active', ['lim','ue'][i]===tab));
+  document.getElementById('tab-lim').classList.toggle('active', tab==='lim');
+  document.getElementById('tab-ue').classList.toggle('active',  tab==='ue');
+}
+
+function isModified() {
+  return JSON.stringify(CASES) !== JSON.stringify(DEFAULT_CASES) ||
+         JSON.stringify(UE_BW)  !== JSON.stringify(DEFAULT_UE_BW);
+}
+function updateModBadge() {
+  document.getElementById('modBadge').style.display = isModified() ? 'inline' : 'none';
+}
+
+// ── 칩셋 Limitation 테이블 렌더 ──
+function renderLimTable() {
+  const tbody = document.getElementById('limBody');
+  tbody.innerHTML = '';
+  for (const [key, caseList] of Object.entries(CASES)) {
+    const tr = document.createElement('tr');
+    // 키 셀
+    const tdKey = document.createElement('td');
+    tdKey.className = 'lim-key';
+    tdKey.textContent = key;
+    tr.appendChild(tdKey);
+    // 케이스 셀
+    const tdCases = document.createElement('td');
+    tdCases.style.padding = '5px 6px';
+    const row = document.createElement('div');
+    row.className = 'lim-case-row';
+    caseList.forEach((pair, idx) => {
+      const pill = document.createElement('div');
+      pill.className = 'lim-case';
+      // FDD input
+      const iF = document.createElement('input');
+      iF.className = 'lim-inp'; iF.type='number'; iF.min=0; iF.max=500; iF.step=10;
+      iF.value = pair[0];
+      iF.title = 'FDD Max (MHz)';
+      iF.addEventListener('change', () => {
+        CASES[key][idx][0] = parseInt(iF.value)||0;
+        updateModBadge();
+      });
+      const sep = document.createElement('span');
+      sep.className='lim-sep'; sep.textContent='+';
+      // TDD input
+      const iT = document.createElement('input');
+      iT.className = 'lim-inp'; iT.type='number'; iT.min=0; iT.max=500; iT.step=10;
+      iT.value = pair[1];
+      iT.title = 'TDD Max (MHz)';
+      iT.addEventListener('change', () => {
+        CASES[key][idx][1] = parseInt(iT.value)||0;
+        updateModBadge();
+      });
+      const unit = document.createElement('span');
+      unit.textContent='MHz';
+      // 삭제 버튼 (케이스가 2개 이상일 때만)
+      const del = document.createElement('button');
+      del.className='lim-del'; del.textContent='×'; del.title='이 케이스 삭제';
+      del.onclick = () => {
+        if (CASES[key].length <= 1) return;
+        CASES[key].splice(idx, 1);
+        renderLimTable(); updateModBadge();
+      };
+      pill.append(iF, sep, iT, unit, del);
+      row.appendChild(pill);
+    });
+    // 케이스 추가 버튼
+    const addBtn = document.createElement('button');
+    addBtn.className='lim-add'; addBtn.textContent='+ 케이스 추가';
+    addBtn.onclick = () => {
+      CASES[key].push([0, 0]);
+      renderLimTable(); updateModBadge();
+    };
+    row.appendChild(addBtn);
+    tdCases.appendChild(row);
+    tr.appendChild(tdCases);
+    tbody.appendChild(tr);
+  }
+}
+
+// ── 단말 BW 테이블 렌더 ──
+function renderUETable() {
+  const table = document.getElementById('ueTable');
+  const bandOrder = [
+    ...Object.keys(UE_BW).filter(b=>FDD_BANDS.has(b)),
+    ...Object.keys(UE_BW).filter(b=>TDD_BANDS.has(b)),
+  ];
+  let html = `<thead><tr>
+    <th style="width:60px">밴드</th>
+    <th>지원 BW (MHz) — 쉼표로 구분, 오름차순 입력</th>
+    <th style="width:80px;text-align:right;padding-right:12px">기본값</th>
+  </tr></thead><tbody>`;
+  for (const band of bandOrder) {
+    const cur = (UE_BW[band]||[]).join(', ');
+    const def = (DEFAULT_UE_BW[band]||[]).join(', ');
+    html += `<tr>
+      <td class="ue-band">${band}</td>
+      <td style="padding:4px 6px;">
+        <input class="ue-inp" id="ue-${band}" value="${cur}"
+          placeholder="${def}"
+          onchange="applyUEBW('${band}', this)"
+          onblur="applyUEBW('${band}', this)">
+      </td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right;padding-right:12px">${def}</td>
+    </tr>`;
+  }
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+function applyUEBW(band, input) {
+  const raw = input.value.trim();
+  // 파싱: 숫자만 추출, 정렬
+  const nums = raw.split(/[\s,]+/)
+    .map(s=>parseInt(s))
+    .filter(n=>!isNaN(n)&&n>0)
+    .sort((a,b)=>a-b);
+  if (!nums.length) {
+    input.classList.add('err');
+    return;
+  }
+  input.classList.remove('err');
+  UE_BW[band] = nums;
+  input.value = nums.join(', '); // 정규화된 값으로 업데이트
+  updateModBadge();
+}
+
+function resetAll() {
+  CASES  = JSON.parse(JSON.stringify(DEFAULT_CASES));
+  UE_BW  = JSON.parse(JSON.stringify(DEFAULT_UE_BW));
+  renderLimTable();
+  renderUETable();
+  updateModBadge();
+}
+
+document.getElementById('inp').addEventListener('keydown', e => { if (e.key==='Enter') run(); });
+
+// ═══════════════════════════════════════════
+//  postMessage 인터페이스 (RF AI Agent Hub 연동)
+// ═══════════════════════════════════════════
+
+// 1. RF AI Hub → Analyzer : 조합 수신 후 자동 분석
+window.addEventListener('message', async (e) => {
+  if (!e.data || e.data.type !== 'ANALYZE_REQUEST') return;
+  const combo = e.data.combo;
+  if (!combo) return;
+  // 입력창에 조합 설정 후 run() 실행
+  document.getElementById('inp').value = combo;
+  await run();
+});
+
+// 2. finish() 완료 후 결과를 Hub로 전송 — finish() 함수를 래핑
+(function() {
+  const _origFinish = finish;
+  window.finish = function(lines, bcsKey, elapsed, bands, cs, hasBCS4and5) {
+    _origFinish(lines, bcsKey, elapsed, bands, cs, hasBCS4and5);
+    // 결과 데이터 구성
+    const results = lines.map(txt => {
+      // BCS 태그 추출 (예: "[BCS0]" "[BCS1]" "[BCS2]")
+      const bcsMatch = txt.match(/\[?(BCS\d(?:\s*and\s*\d)?)\]?/i);
+      const bcs = bcsMatch ? bcsMatch[1].replace(/\s/g,'') : (bcsKey || '');
+      // BCS 태그 제거한 순수 BW 텍스트
+      const bwText = txt.replace(/\[?(BCS\s*\d(?:\s*and\s*\d)?)\]?\s*/gi, '').trim();
+      return { bw: bwText, bcs: bcs, full: txt };
+    });
+    // parent(RF AI Hub)로 결과 전송
+    window.parent.postMessage({
+      type:    'ANALYZE_RESULT',
+      combo:   document.getElementById('inp').value.trim(),
+      results: results,
+      chipset: cs ? cs.key : '',
+      bcsKey:  bcsKey || '',
+      count:   lines.length
+    }, '*');
+  };
+})();
+</script>
+</body>
+</html>
