@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CA BW Analyzer — 워크플로우</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-base: #090d16;
+    --bg-panel: rgba(17, 23, 38, 0.65);
+    --bg-surface: rgba(30, 41, 59, 0.5);
+    --border-color: rgba(255, 255, 255, 0.06);
+    --border-color-hover: rgba(255, 255, 255, 0.12);
+    
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    
+    --accent-blue: #3b82f6;
+    --accent-green: #10b981;
+    --accent-teal: #2dd4bf;
+    --accent-purple: #818cf8;
+    --accent-orange: #f59e0b;
+    
+    --radius-sm: 6px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    
+    --font-heading: 'Plus Jakarta Sans', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+
+    /* 하위 호환성용 */
+    --bg: var(--bg-base);
+    --bg2: var(--bg-panel);
+    --bg3: rgba(17, 23, 38, 0.85);
+    --border: var(--border-color);
+    --text: var(--text-primary);
+    --muted: var(--text-secondary);
+    --c1: var(--accent-blue);
+    --c2: var(--accent-purple);
+    --c3: #ff6b9d;
+    --c4: var(--accent-orange);
+    --c5: var(--accent-green);
+    --c6: #ff9ff3;
+    --c7: #feca57;
+    --c8: #54a0ff;
+    --c9: #ef4444;
+    --c10: #a78bfa;
+  }
+
+  body {
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    padding: 0 24px 80px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* ── Background Glow Orbs ── */
+  .glow-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb-1 {
+    width: 350px;
+    height: 350px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.07) 0%, rgba(59, 130, 246, 0) 70%);
+    top: -50px;
+    right: -50px;
+  }
+  .orb-2 {
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(45, 212, 191, 0.04) 0%, rgba(45, 212, 191, 0) 70%);
+    bottom: -50px;
+    left: -50px;
+  }
+
+  /* ── Header ── */
+  header {
+    background: rgba(17, 23, 38, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-color);
+    padding: 16px 24px;
+    margin: 0 -24px 44px -24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    z-index: 10;
+  }
+  header h1 {
+    font-family: var(--font-heading);
+    font-size: 16px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #ffffff 30%, #93c5fd 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
+  }
+  header span {
+    font-family: var(--font-heading);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .nav-link {
+    font-family: var(--font-heading);
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    padding: 5px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.02);
+    transition: all .2s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+  }
+  .nav-link:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+  .nav-link.ext {
+    color: var(--accent-orange);
+    background: rgba(245, 158, 11, 0.04);
+    border-color: rgba(245, 158, 11, 0.15);
+  }
+  .nav-link.ext:hover {
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.25);
+  }
+
+  .subtitle-wrap {
+    text-align: center;
+    margin-bottom: 40px;
+    z-index: 1;
+    position: relative;
+  }
+  .subtitle-wrap h2 {
+    font-family: var(--font-heading);
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+  .subtitle-wrap p {
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  /* ── Workflow container ── */
+  .workflow { max-width: 800px; margin: 0 auto; position: relative; z-index: 1; }
+
+  /* Vertical spine */
+  .workflow::before {
+    content: '';
+    position: absolute;
+    left: 21px; top: 22px; bottom: 22px;
+    width: 1px;
+    background: linear-gradient(to bottom,
+      rgba(59, 130, 246, 0.15) 0%, rgba(124, 111, 255, 0.3) 30%, rgba(255, 107, 157, 0.2) 60%, rgba(29, 209, 161, 0.15) 100%);
+    pointer-events: none;
+  }
+
+  /* ── Phase divider ── */
+  .phase-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0 8px 0;
+    padding-left: 56px;
+  }
+  .phase-divider::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    width: 15px;
+    height: 1px;
+    background: var(--pd-color, #7c6fff);
+    opacity: .4;
+  }
+  .phase-divider-label {
+    font-family: var(--font-heading);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--pd-color, #7c6fff);
+    opacity: .75;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  /* ── Step ── */
+  .step { position: relative; margin-bottom: 4px; }
+
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px 12px 0;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background .2s, border-color .2s;
+    user-select: none;
+  }
+  .step-header:hover { background: rgba(255, 255, 255, 0.03); }
+  .step-header.active {
+    border-color: color-mix(in srgb, var(--step-color, #7c6fff) 30%, transparent);
+    background: color-mix(in srgb, var(--step-color, #7c6fff) 6%, transparent);
+  }
+
+  .node {
+    width: 44px; height: 44px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-panel);
+    border: 2px solid var(--step-color, #7c6fff);
+    display: flex align-items center justify-content center;
+    font-size: 18px;
+    flex-shrink: 0;
+    position: relative; z-index: 1;
+    transition: background .2s, box-shadow .2s, color .2s;
+    color: var(--step-color, #7c6fff);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step-header.active .node {
+    background: var(--step-color, #7c6fff);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--step-color, #7c6fff) 40%, transparent);
+    color: #08080f;
+  }
+
+  .step-meta { flex: 1; min-width: 0; }
+  .step-phase-row { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; flex-wrap: wrap; }
+  .phase-label {
+    font-family: var(--font-heading);
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: var(--step-color, #7c6fff);
+    opacity: .8;
+    font-weight: 700;
+  }
+  .branch-badge {
+    font-family: var(--font-heading);
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--step-color) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--step-color) 40%, transparent);
+    color: var(--step-color);
+    letter-spacing: .5px;
+    font-weight: 600;
+  }
+  .step-title {
+    font-size: 14.5px; font-weight: 700; color: var(--text-primary);
+    transition: color .2s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .step-header.active .step-title { color: var(--text-primary); }
+  .step-subtitle {
+    font-family: var(--font-mono);
+    font-size: 10.5px; color: var(--text-secondary); margin-top: 2px;
+  }
+  .step-arrow {
+    font-size: 10px;
+    color: var(--step-color, #7c6fff);
+    opacity: .4;
+    transition: opacity .2s, transform .25s;
+    flex-shrink: 0;
+  }
+  .step-header.active .step-arrow { opacity: 1; transform: rotate(90deg); }
+
+  .connector {
+    position: absolute; left: 18px; bottom: -7px;
+    font-size: 10px; color: rgba(255, 255, 255, 0.05); z-index: 1; pointer-events: none;
+  }
+
+  /* ── Detail panel ── */
+  .detail {
+    display: none;
+    margin: 4px 0 8px 60px;
+    padding: 16px 20px;
+    background: var(--bg-panel);
+    border: 1px solid color-mix(in srgb, var(--step-color, #7c6fff) 20%, transparent);
+    border-left: 3px solid var(--step-color, #7c6fff);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    animation: slideDown .2s ease;
+  }
+  .detail.open { display: block; }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .detail-row {
+    display: flex; gap: 10px;
+    font-size: 13px; color: var(--text-secondary); line-height: 1.9;
+  }
+  .detail-bullet {
+    color: var(--step-color, #7c6fff);
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+  }
+  .detail-text { flex: 1; }
+  .detail-code {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--step-color, #7c6fff);
+    background: color-mix(in srgb, var(--step-color, #7c6fff) 10%, transparent);
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin: 0 2px;
+  }
+
+  /* ── 섹션: 칩셋 테이블, UE BW ── */
+  .table-section { max-width: 800px; margin: 44px auto 0; position: relative; z-index: 1; }
+  .table-toggle {
+    width: 100%;
+    padding: 14px 20px;
+    background: var(--bg-panel);
+    border: 1px solid color-mix(in srgb, var(--c2) 20%, transparent);
+    color: var(--c2);
+    font-family: var(--font-heading);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: all .2s;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .table-toggle:hover { background: color-mix(in srgb, var(--c2) 8%, transparent); border-color: color-mix(in srgb, var(--c2) 50%, transparent); }
+  .table-toggle .arr { transition: transform .25s; display: inline-block; }
+  .table-toggle.open { background: var(--bg-panel); }
+  .table-toggle.open .arr { transform: rotate(180deg); }
+
+  .table-wrap {
+    display: none;
+    margin-top: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    animation: slideDown .2s ease;
+  }
+  .table-wrap.open { display: block; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  thead tr { background: rgba(0, 0, 0, 0.2); }
+  th {
+    padding: 12px 18px; text-align: left;
+    color: var(--c2); letter-spacing: .5px;
+    font-family: var(--font-heading); font-size: 11px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-weight: 700;
+  }
+  tbody tr { border-bottom: 1px solid rgba(255, 255, 255, 0.02); transition: background .15s; }
+  tbody tr:nth-child(odd)  { background: rgba(17, 23, 38, 0.4); }
+  tbody tr:nth-child(even) { background: rgba(17, 23, 38, 0.75); }
+  tbody tr.hl { background: rgba(124, 111, 255, 0.06); }
+  tbody tr:hover { background: rgba(255, 255, 255, 0.04); }
+  td { padding: 11px 18px; color: var(--text-secondary); }
+  td.cc { font-family: var(--font-mono); color: var(--text-primary); }
+  td.cc.hl { color: var(--accent-purple); font-weight: 700; }
+  td.cf { color: var(--accent-blue); font-family: var(--font-mono); }
+  td.ct { color: var(--accent-green); font-family: var(--font-mono); }
+
+  .table-warn {
+    padding: 12px 18px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--accent-orange);
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(0, 0, 0, 0.15);
+    letter-spacing: .3px;
+  }
+
+  /* ── UE BW 테이블 ── */
+  .ue-toggle { border-color: color-mix(in srgb, var(--c5) 20%, transparent); color: var(--c5); margin-top: 12px; }
+  .ue-toggle:hover { background: color-mix(in srgb, var(--c5) 8%, transparent); border-color: color-mix(in srgb, var(--c5) 50%, transparent); }
+  .ue-table-wrap { border-color: rgba(255, 255, 255, 0.05); }
+  .ue-table-wrap th { color: var(--c5); border-bottom-color: rgba(255, 255, 255, 0.06); }
+  td.ub { font-family: var(--font-mono); color: var(--text-secondary); font-size: 11.5px; }
+  td.ubn { font-family: var(--font-mono); color: var(--accent-green); font-weight: 700; }
+  td.ubt { font-family: var(--font-mono); font-size: 10px; color: var(--accent-orange); }
+
+  /* ── Legend ── */
+  .legend {
+    max-width: 800px; margin: 36px auto 0;
+    display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+    position: relative; z-index: 1;
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--text-secondary); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; box-shadow: 0 0 6px currentColor; }
+
+  .hint {
+    text-align: center; margin-top: 44px;
+    font-family: var(--font-mono);
+    font-size: 11px; color: var(--text-muted); letter-spacing: 1.5px;
+    position: relative; z-index: 1;
+  }
+</style>
+</head>
+<body>
+<div class="glow-orb orb-1"></div>
+<div class="glow-orb orb-2"></div>
+
+<header>
+  <h1>CA_BW_ANALYZER</h1>
+  <span>동작 워크플로우 · v2.0 / 3GPP TS 38.101-1 V19.5.0</span>
+  <nav style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+    <a href="index.html"     class="nav-link">← 분석기</a>
+    <a href="flowchart.html" class="nav-link">순서도</a>
+    <a href="manual.pdf"     class="nav-link ext" target="_blank">매뉴얼 ↗</a>
+  </nav>
+</header>
+
+<div class="subtitle-wrap">
+  <h2>NR CA Bandwidth Combination 분석 워크플로우</h2>
+  <p>각 단계를 클릭하면 3GPP 규격 기준의 세부 규칙을 확인하실 수 있습니다.</p>
+</div>
+
+<div class="workflow" id="workflow"></div>
+
+<!-- 칩셋 Max BW 규칙표 -->
+<div class="table-section">
+  <button class="table-toggle" id="tt1" onclick="toggleTable('tt1','tw1','칩셋 Max BW 규칙표')">
+    <span>▦</span><span>칩셋 Max BW 규칙표 보기</span><span class="arr">▼</span>
+  </button>
+  <div class="table-wrap" id="tw1">
+    <table>
+      <thead><tr><th>구성</th><th>FDD Max</th><th>TDD Max</th><th>케이스 수</th></tr></thead>
+      <tbody id="tb1"></tbody>
+    </table>
+    <div class="table-warn">
+      ⚠ 2F+2T는 3케이스 모두 분석 &nbsp;·&nbsp; 1F+3T에서 fddUEMax≥40→HI(40+220), ≤30→LO(30+240)
+    </div>
+  </div>
+</div>
+
+<!-- 단말 지원 BW 기본값 -->
+<div class="table-section">
+  <button class="table-toggle ue-toggle" id="tt2" onclick="toggleTable('tt2','tw2','단말 지원 BW')">
+    <span>⊞</span><span>단말 지원 BW 기본값 보기</span><span class="arr">▼</span>
+  </button>
+  <div class="table-wrap ue-table-wrap" id="tw2">
+    <table>
+      <thead><tr><th>밴드</th><th>구분</th><th>지원 BW (MHz)</th></tr></thead>
+      <tbody id="tb2"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#00d4ff"></div>입력 / 파싱</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#7c6fff"></div>핵심 판단</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ff9f43"></div>BRANCH 분기</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#1dd1a1"></div>검사 / 출력</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#feca57"></div>Intra 처리</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>5CA / 특수 종료</div>
+</div>
+
+<div class="hint">각 단계를 클릭하면 세부 규칙을 확인할 수 있습니다</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  스텝 데이터
+// ═══════════════════════════════════════════
+const STEPS = [
+  // ── PHASE 1: 입력 파싱 ──
+  {
+    phase:'INPUT', icon:'⌨', color:'#00d4ff',
+    title:'CA 조합 입력 & 밴드 파싱',
+    subtitle:'nXA / nXB / nXC / nX(2A) / nX(3A)',
+    details:[
+      '지원 표기: <span class="detail-code">nXA</span> (단일) · <span class="detail-code">nXB</span> (FDD Intra 2CC) · <span class="detail-code">nXC</span> (TDD Intra 2CC) · <span class="detail-code">nX(2A)</span> · <span class="detail-code">nX(3A)</span>',
+      'CC 수: A=1, B=2, C=2, D=3, E=4 &nbsp;(Table 5.3A.5-1 기준 — 알파벳 순서 추정 금지)',
+      'FDD 밴드: n1 n2 n3 n5 n7 n8 n12 n20 n25 n26 n28 n66 n71 n75',
+      'TDD 밴드: n38 n40 n41 n77 n78 n79',
+      '각 밴드 → <span class="detail-code">{ name, cc, isFDD, isTDD, isIntra }</span> 객체 생성',
+    ],
+  },
+  {
+    phase:'CHIPSET', icon:'⚙', color:'#ff6b9d',
+    title:'칩셋 구조 판단',
+    subtitle:'fCnt(FDD CC합) · tCnt(TDD CC합) → 케이스 결정',
+    details:[
+      'fCnt = Σ (FDD 밴드 CC수) &nbsp;/ &nbsp; tCnt = Σ (TDD 밴드 CC수)',
+      'fddUEMax = FDD 밴드 단말 지원 BW 중 최댓값 (1F+3T 분기 기준)',
+      '1F+3T: fddUEMax ≥ 40 MHz → <span class="detail-code">HI (40+220)</span> &nbsp;/ &nbsp; fddUEMax ≤ 30 MHz → <span class="detail-code">LO (30+240)</span>',
+      '2F+2T: 3케이스 모두 분석 <span class="detail-code">50+200 / 60+180 / 80+140</span>',
+      '⚠ 20+250 케이스는 존재하지 않음',
+    ],
+  },
+  // ── PHASE 2: 5CA / 규칙 0 ──
+  {
+    phase:'5CA CHECK', icon:'⑤', color:'#ef4444',
+    title:'5CA 이상 체크',
+    subtitle:'총 CC 수 ≥ 5 → 즉시 BCS5 반환',
+    branch:'5CA 이상 → BCS5 종료',
+    details:[
+      '총 CC 수(fCnt + tCnt)가 5 이상이면 DB 탐색 없이 즉시 종료',
+      '출력 형식: <span class="detail-code">BCS5 : {칩셋 키}</span> &nbsp;예) <span class="detail-code">BCS5 : 3F+2T</span>',
+      '5CA 이상 조합의 실제 BW는 3GPP 표준 문서를 직접 확인해야 함',
+      '이 검사는 칩셋 구조 판단 직후, DB 조회 이전에 수행됨',
+    ],
+  },
+  {
+    phase:'PRE-CHECK', icon:'✓', color:'#1dd1a1',
+    title:'규칙 0 — No Limitation 사전 검사',
+    subtitle:'단말 UE Max 합계 ≤ 칩셋 Max?',
+    branch:'No Limitation → 즉시 종료',
+    details:[
+      '각 밴드 단말 지원 Max BW × CC수 합산: FDD합계, TDD합계 계산',
+      '조건: FDD합계 ≤ fddMax &nbsp;AND&nbsp; TDD합계 ≤ tddMax',
+      '→ 모든 케이스 중 하나라도 충족 시 <span class="detail-code">No Limitation</span> 즉시 출력 후 종료',
+      '→ 모든 케이스에서 초과 시 DB 조회 진행',
+    ],
+  },
+  // ── PHASE 3: DB 조회 & BCS 선택 ──
+  {
+    phase:'DB LOOKUP', icon:'⊙', color:'#54a0ff',
+    title:'DB 조회 & ref 해석',
+    subtitle:'CA_nXA-nYA-nZ(2A) → O(1) 직접 조회',
+    branch:'미발견 / BCS4and5 → 종료',
+    details:[
+      'DB 키 형식: <span class="detail-code">CA_n1A-n3A-n78C</span> — 3,250개 조합 내장',
+      'ref 해석 ①: <span class="detail-code">val.ref: "CA_n78(2A)_BCS0"</span> → base 키 탐색',
+      'ref 해석 ②: FDD (2A) 표기 → B suffix fallback 시도',
+      'ref 해석 ③: <span class="detail-code">ref에 "BCS 4 and 5" 포함</span> → 해당 BCS invalid 마킹',
+      '유효 BCS 없음(모두 invalid) 또는 BCS4and5만 존재 → <span class="detail-code">(BCS4 and 5)</span> 출력 후 종료',
+      'DB 키 자체 미발견 → 분석 불가 출력 후 중단',
+    ],
+  },
+  {
+    phase:'BCS SELECT', icon:'★', color:'#ff9ff3',
+    title:'BCS 선택',
+    subtitle:'score = Σ max(DB허용 ∩ 단말지원) 기준',
+    details:[
+      '유효BW = <span class="detail-code">DB허용값 ∩ 단말지원BW</span> — 명시적 교집합 계산',
+      'score 계산: 각 밴드 유효BW 최댓값 합산',
+      'TDD Intra 밴드: <span class="detail-code">max(cc1+cc2)</span> s.t. cc1≤cc2, cc1+cc2≤cc_max 를 score에 합산',
+      '⚠ invalid 마킹된 BCS는 건너뜀',
+      '가장 높은 score의 BCS를 선택 → 유효BW 확정',
+    ],
+  },
+  // ── PHASE 4: 탐색 ──
+  {
+    phase:'INTRA', icon:'⟷', color:'#feca57',
+    title:'Intra-band 처리',
+    subtitle:'FDD: 합계 고정 / TDD: cc1≤cc2 완전 탐색',
+    details:[
+      '<b>FDD Intra</b>: CC 합계를 cc_max(최대값)으로 고정 — remainFDD에서 차감',
+      'FDD split pairs: cc_max 합계인 모든 (cc1,cc2) 산출 → 포맷 단계에서 각 줄 출력',
+      '예) n7B cc_max=50: pairs → <span class="detail-code">[10+40]</span> , <span class="detail-code">[20+30]</span> — 더 작은 합계 조합 나열 금지!',
+      '<b>TDD Intra</b>: cc1≤cc2, cc1+cc2≤cc_max 인 모든 (cc1,cc2) 쌍 완전 탐색',
+      'TDD 예) n78(2A) cc_max=200: 합계≤TDD Max인 모든 split 조합 포함',
+    ],
+  },
+  {
+    phase:'SEARCH', icon:'∀', color:'#00d4ff',
+    title:'완전 탐색 — 케이스별 재귀',
+    subtitle:'FDD Single + TDD Single + TDD Intra 재귀',
+    details:[
+      '각 칩셋 케이스 [fddMax, tddMax] 순회',
+      'FDD Intra 합계 선차감 → remainFDD = fddMax − totalFddIntra',
+      'FDD Single 재귀: 합계 ≤ remainFDD 조건으로 모든 값 조합 탐색',
+      'TDD Single 재귀: 합계 ≤ tddMax 조건으로 탐색',
+      'TDD Intra 재귀: (cc1,cc2) 쌍 × 합계 ≤ remainTDD 탐색',
+      '유효 조합을 <b>밴드 순서대로 flatten</b> → Map으로 중복 제거 후 pool 수집',
+    ],
+  },
+  {
+    phase:'BIDIR', icon:'⇆', color:'#ff9f43',
+    title:'TDD Inter-band 양방향 추가',
+    subtitle:'TDD Single ≥ 2밴드 → permutations 추가',
+    details:[
+      'TDD Single 밴드가 2개 이상인 경우에만 적용',
+      'TDD Single 밴드 값들의 모든 순열(permutations) 생성 → pool에 추가',
+      '예) n41A[100M]-n78A[80M] ↔ <span class="detail-code">n41A[80M]-n78A[100M]</span> 둘 다 포함',
+      '⚠ 1개 이하이면 건너뜀',
+    ],
+  },
+  {
+    phase:'PARETO', icon:'⊿', color:'#7c6fff',
+    title:'Cross-case Pareto 필터',
+    subtitle:'전체 pool 한 번에 비지배 집합 추출',
+    details:[
+      '⚠ <b>케이스별 Pareto 후 합산 절대 금지</b> — 케이스 간 지배 관계 누락 버그 발생',
+      '모든 케이스 후보를 하나의 pool로 합친 뒤 <b>한 번에</b> Pareto 적용',
+      'dominated 조건: 다른 조합 o가 모든 차원 ≥ c 이고 하나 이상 > c',
+      '⚠ TDD Intra: <span class="detail-code">(cc1, cc2) 개별 차원</span> 비교 — cc_total 합계로 묶으면 안 됨',
+      'Tradeoff 관계(어느 밴드는 크고 어느 밴드는 작은) 조합은 모두 유지',
+    ],
+  },
+  // ── PHASE 5: 출력 ──
+  {
+    phase:'FORMAT', icon:'≡', color:'#a78bfa',
+    title:'정렬 & 출력 포맷',
+    subtitle:'총합 내림차순 / FDD Intra split 전개',
+    details:[
+      '정렬: 총합 기준 내림차순 → 동일 시 각 밴드 값 내림차순',
+      '<b>FDD Intra split Cartesian 전개</b>: 동일 합계의 split이 여러 개이면 각각 별도 줄 출력',
+      '예) n1A-n3A-n7B 결과:<br>&nbsp;&nbsp;<span class="detail-code">n1A[40M]-n3A[10M]-n7B[10+40M](BCS1)</span><br>&nbsp;&nbsp;<span class="detail-code">n1A[40M]-n3A[10M]-n7B[20+30M](BCS1)</span>',
+      '형식: <span class="detail-code">nXA[BW]-nYA[BW]-nZC[cc1+cc2M](BCS#)</span>',
+      '밴드 순서: 입력된 CA 조합의 순서 그대로 유지',
+    ],
+  },
+  {
+    phase:'OUTPUT', icon:'▶', color:'#1dd1a1',
+    title:'최종 결과 출력',
+    subtitle:'Pareto 최적 조합 목록 / 클릭 복사',
+    details:[
+      '결과 줄을 클릭하면 해당 줄이 클립보드에 복사됨',
+      '[전체 복사] 버튼으로 모든 결과를 한 번에 복사',
+      '특수 결과: <span class="detail-code">No Limitation</span> · <span class="detail-code">(BCS4 and 5)</span> · <span class="detail-code">BCS5 : {key}</span>',
+      '처리 시간 · 선택된 BCS · 칩셋 구성 메타 정보 함께 표시',
+    ],
+  },
+];
+
+// ── Phase 그룹 정보 ──
+const PHASES = [
+  { label:'PHASE 1 — 입력 파싱 & 칩셋 판단', color:'#00d4ff', steps:[0,1] },
+  { label:'PHASE 2 — 5CA 체크 & 사전 검사',  color:'#ef4444', steps:[2,3] },
+  { label:'PHASE 3 — DB 조회 & BCS 선택',    color:'#54a0ff', steps:[4,5] },
+  { label:'PHASE 4 — 완전 탐색 & Pareto',    color:'#1dd1a1', steps:[6,7,8,9] },
+  { label:'PHASE 5 — 정렬 & 출력',           color:'#a78bfa', steps:[10,11] },
+];
+
+// ── Build workflow ──
+const wf = document.getElementById('workflow');
+
+// phase→step 매핑
+const stepPhase = {};
+PHASES.forEach(p => p.steps.forEach(si => stepPhase[si] = p));
+
+let phaseInserted = new Set();
+STEPS.forEach((s, i) => {
+  // Phase divider
+  const ph = stepPhase[i];
+  if (ph && !phaseInserted.has(ph.label)) {
+    phaseInserted.add(ph.label);
+    const div = document.createElement('div');
+    div.className = 'phase-divider';
+    div.style.setProperty('--pd-color', ph.color);
+    div.innerHTML = `<span class="phase-divider-label">${ph.label}</span>`;
+    wf.appendChild(div);
+  }
+
+  const num = String(i+1).padStart(2,'0');
+  const el = document.createElement('div');
+  el.className = 'step';
+  el.id = `step-${i}`;
+  el.innerHTML = `
+    <div class="step-header" id="hdr-${i}" style="--step-color:${s.color}" onclick="toggle(${i})">
+      <div class="node">${s.icon}</div>
+      <div class="step-meta">
+        <div class="step-phase-row">
+          <span class="phase-label">${num} · ${s.phase}</span>
+          ${s.branch ? `<span class="branch-badge" style="--step-color:${s.color}">BRANCH → ${s.branch}</span>` : ''}
+        </div>
+        <div class="step-title">${s.title}</div>
+        <div class="step-subtitle">${s.subtitle}</div>
+      </div>
+      <div class="step-arrow">▶</div>
+    </div>
+    ${s.details.length ? `
+    <div class="detail" id="det-${i}" style="--step-color:${s.color}">
+      ${s.details.map(d=>`
+        <div class="detail-row">
+          <span class="detail-bullet">›</span>
+          <span class="detail-text">${d}</span>
+        </div>`).join('')}
+    </div>` : ''}
+    ${i < STEPS.length-1 ? '<div class="connector">▼</div>' : ''}
+  `;
+  wf.appendChild(el);
+});
+
+function toggle(i) {
+  const hdr = document.getElementById(`hdr-${i}`);
+  const det = document.getElementById(`det-${i}`);
+  const isOpen = hdr.classList.contains('active');
+  document.querySelectorAll('.step-header').forEach(h=>h.classList.remove('active'));
+  document.querySelectorAll('.detail').forEach(d=>d.classList.remove('open'));
+  if (!isOpen) { hdr.classList.add('active'); if(det) det.classList.add('open'); }
+}
+
+// ── 칩셋 테이블 ──
+const CHIPSET = [
+  { cfg:'1F',           fdd:'50 MHz',     tdd:'—',             n:'1', hl:false },
+  { cfg:'2F',           fdd:'80 MHz',     tdd:'—',             n:'1', hl:false },
+  { cfg:'3F / 4F',      fdd:'100 MHz',    tdd:'—',             n:'1', hl:false },
+  { cfg:'1T',           fdd:'—',          tdd:'100 MHz',       n:'1', hl:false },
+  { cfg:'2T',           fdd:'—',          tdd:'200 MHz',       n:'1', hl:false },
+  { cfg:'3T',           fdd:'—',          tdd:'300 MHz',       n:'1', hl:false },
+  { cfg:'1F+1T',        fdd:'50 MHz',     tdd:'100 MHz',       n:'1', hl:false },
+  { cfg:'2F+1T',        fdd:'80 MHz',     tdd:'100 MHz',       n:'1', hl:false },
+  { cfg:'1F+2T',        fdd:'50 MHz',     tdd:'200 MHz',       n:'1', hl:false },
+  { cfg:'2F+2T',        fdd:'50/60/80',   tdd:'200/180/140',   n:'3', hl:true  },
+  { cfg:'3F+1T',        fdd:'100 MHz',    tdd:'100 MHz',       n:'1', hl:false },
+  { cfg:'1F+3T (HI≥40)',fdd:'40 MHz',     tdd:'220 MHz',       n:'1', hl:true  },
+  { cfg:'1F+3T (LO≤30)',fdd:'30 MHz',     tdd:'240 MHz',       n:'1', hl:true  },
+];
+const tb1 = document.getElementById('tb1');
+CHIPSET.forEach(r => {
+  const tr = document.createElement('tr');
+  if (r.hl) tr.classList.add('hl');
+  tr.innerHTML = `<td class="cc${r.hl?' hl':''}">${r.cfg}</td><td class="cf">${r.fdd}</td><td class="ct">${r.tdd}</td><td style="color:#64748b;font-family:'JetBrains Mono',monospace;font-size:11px">${r.n}케이스</td>`;
+  tb1.appendChild(tr);
+});
+
+// ── 단말 BW 테이블 ──
+const UE_BW = [
+  { band:'n1',  type:'FDD', bw:'5 / 10 / 15 / 20 / 25 / 30 / 40' },
+  { band:'n2',  type:'FDD', bw:'5 / 10 / 15 / 20 / 25 / 30 / 40' },
+  { band:'n3',  type:'FDD', bw:'5 / 10 / 15 / 20 / 25 / 30 / 40' },
+  { band:'n5',  type:'FDD', bw:'5 / 10 / 15 / 20' },
+  { band:'n7',  type:'FDD', bw:'5 / 10 / 15 / 20 / 25 / 30 / 40' },
+  { band:'n8',  type:'FDD', bw:'5 / 10 / 15 / 20' },
+  { band:'n12', type:'FDD', bw:'5 / 10 / 15' },
+  { band:'n20', type:'FDD', bw:'5 / 10 / 15 / 20' },
+  { band:'n25', type:'FDD', bw:'5 / 10 / 15 / 20 / 25 / 30 / 40' },
+  { band:'n26', type:'FDD', bw:'5 / 10 / 15 / 20' },
+  { band:'n28', type:'FDD', bw:'5 / 10 / 15 / 20 / 25 / 30' },
+  { band:'n38', type:'TDD', bw:'10 / 15 / 20 / 30 / 40' },
+  { band:'n40', type:'TDD', bw:'10 / 15 / 20 / 30 / 40 / 50 / 60 / 70 / 80 / 90 / 100' },
+  { band:'n41', type:'TDD', bw:'10 / 15 / 20 / 30 / 40 / 50 / 60 / 70 / 80 / 90 / 100' },
+  { band:'n66', type:'FDD', bw:'5 / 10 / 15 / 20 / 30 / 40' },
+  { band:'n71', type:'FDD', bw:'5 / 10 / 15 / 20' },
+  { band:'n75', type:'FDD', bw:'5 / 10 / 15 / 20 / 25 / 30 / 40 / 50' },
+  { band:'n77', type:'TDD', bw:'10 / 15 / 20 / 30 / 40 / 50 / 60 / 70 / 80 / 90 / 100' },
+  { band:'n78', type:'TDD', bw:'10 / 15 / 20 / 30 / 40 / 50 / 60 / 70 / 80 / 90 / 100' },
+];
+const tb2 = document.getElementById('tb2');
+UE_BW.forEach(r => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="ubn">${r.band}</td><td class="ubt">${r.type}</td><td class="ub">${r.bw}</td>`;
+  tb2.appendChild(tr);
+});
+
+function toggleTable(btnId, wrapId, label) {
+  const btn = document.getElementById(btnId);
+  const wrap = document.getElementById(wrapId);
+  const isOpen = btn.classList.contains('open');
+  btn.classList.toggle('open', !isOpen);
+  wrap.classList.toggle('open', !isOpen);
+  const txtNode = btn.childNodes[1];
+  if (txtNode) txtNode.textContent = isOpen ? ` ${label} 보기` : ` ${label} 숨기기`;
+}
+</script>
+</body>
+</html>
